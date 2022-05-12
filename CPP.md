@@ -187,30 +187,30 @@ Therefore, when calling templated functions, *decay* C strings to type `char*` b
 
 ```c++
 template<typename String>
-void original_f(String const& name)
+void original_f(String const& s)
 {
   ...
 }
 
-void f(char const* const name)
+void f(char const* const s)
 {
-  original_f(name);  // Instantiates 'original_f<const char *>'.
+  original_f(s);  // Instantiates 'original_f<const char *>'.
 }
-void f(char* const name)
+void f(char* const s)
 {
-  // Cast name to 'char const*' to use 'original_f<const char *>'.
-  original_f(static_cast<char const*>(name)); 
+  // Cast s to 'char const*' to use 'original_f<const char *>'.
+  original_f(static_cast<char const*>(s)); 
 }
 template<typename String>
-void f(String const& name)
+void f(String const& s)
 {
-  original_f(name);
+  original_f(s);
 }
 ```
 
 This will instantiate `original_f()` only **once** to handle all C strings.
 
-### 4. When a `std::string` needs to be retained could be moved from, define the following two functions:
+### 4. When a `std::string` needs to be retained and can be moved from, define the following two functions:
 
 ```c++
 void f(std::string&& s)
@@ -223,4 +223,4 @@ void f(std::string const& s)
 }
 ```
 
-The first `f()` will catch all C strings, that will be implicitly converted on the stack to r-value `std::strings` that will be moved from. The second `f()` will catch actual l-value `std::strings`, duplicate them to r-value `std::strings` and pass them to the first `f()`. The first `f()` will also catch anything at all that can be implicitly converted to a `std::string`.
+The first `f()` will catch all C strings, that will be implicitly converted on the stack to r-value `std::strings` that will be moved from. The second `f()` will catch actual l-value `std::strings`, duplicate them on the stack to r-value `std::strings` and pass them to the first `f()`. The first `f()` will also catch anything at all that can be implicitly converted to a `std::string`.

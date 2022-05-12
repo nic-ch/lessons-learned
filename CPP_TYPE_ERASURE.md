@@ -18,6 +18,7 @@ public:
   void a(int x) { ... }
   void b(int x) { ... }
 };
+
 class Object2
 {
   ...
@@ -27,21 +28,19 @@ public:
 };
 ```
 
-#### 2. Define a set of functions in a Mixin to implement a new Strategy for each class selected above. Optionally, define the same set of functions in more than one such Mixin to implement different Strategies, e.g.:
+#### 2. Define a set of functions in a Strategy struct for each class selected above. Optionally, define the same set of functions in more than one such Strategy struct to implement different Strategies, e.g.:
 
 ```c++
-class StrategyA
+struct StrategyA
 {
-protected:
   void f1(Object1& o, int x) { o.a(x); }
   void f2(Object1& o, int x) { o.a(x); o.b(x); }
 
   void f1(Object2& o, int x) { o.d(x); o.c(x); }
   void f2(Object2& o, int x) { o.d(x); }
 };
-class StrategyB
+struct StrategyB
 {
-protected:
   void f1(Object1& o, int x) { o.b(x); }
   void f2(Object1& o, int x) { o.a(x); }
 
@@ -119,37 +118,43 @@ So this can be used as follows:
 ```c++
 int main()
 {
-  TypeErased<StrategyA> te1((Object1(1)));
-  Object1 o(2);
-  TypeErased<StrategyB> te2(o);
-  te1.f2(11);
-  te2.f1(12);
+  TypeErased<StrategyA> teA((Object1(1)));
+  Object2 o2(2);
+  TypeErased<StrategyB> teB(o2);
+  teA.f1(11);
+  teA.f2(12);
+  teB.f1(13);
+  teB.f2(14);
 
-  std::vector<TypeErased<StrategyA>> objects;
-  objects.emplace_back(Object1(3));
-  objects.emplace_back(Object2(4));
+  std::vector<TypeErased<StrategyA>> v;
+  v.emplace_back(Object1(3));
+  v.emplace_back(o2);
+  for (auto&& e : v) {
+    e.f1(15);
+    e.f2(16);
+  }
 }
 ```
 
 Although this represent lots of code, modern compilers *should* compile away most of it.
 
-## Runtime Type Erasure
+## "Runtime" Type Erasure
 
-One may also want to make ***Type Erasure*** do-able at runtime as follows:
+One may also want to make type erasure do-able at "runtime" as follows:
 
 ```c++
 int main()
 {
-  StrategyA sa{ StrategyA() };
-  StrategyB sb{ StrategyB() };
-  Object1 o1{ Object1(1) };
-  Object1 o2{ Object1(2) };
+  auto sa{ StrategyA() };
+  auto sb{ StrategyB() };
+  auto o1{ Object1(1) };
+  auto o2{ Object2(2) };
 
   std::vector<RuntimeTypeErased> v;
   v.emplace_back(o1, sb);
   v.emplace_back(o2, StrategyA());
-  v.emplace_back(Object1(1), sa);
-  v.emplace_back(Object2(2), StrategyB());
+  v.emplace_back(Object1(3), sa);
+  v.emplace_back(Object2(4), StrategyB());
   for (auto&& e : v) {
     e.f1(11);
     e.f2(12);
@@ -157,28 +162,7 @@ int main()
 }
 ```
 
-If both *Strategies* Mixins are made instantiable classes (by making their methods public), as well as ensuring they have valid default, copy and move constructors, e.g.:
-
-```c++
-struct StrategyA
-{
-  void f1(Object1& o, int x) { o.a(x); }
-  void f2(Object1& o, int x) { o.a(x); o.b(x); }
-
-  void f1(Object2& o, int x) { o.d(x); o.c(x); }
-  void f2(Object2& o, int x) { o.d(x); }
-};
-struct StrategyB
-{
-  void f1(Object1& o, int x) { o.b(x); }
-  void f2(Object1& o, int x) { o.a(x); }
-
-  void f1(Object2& o, int x) { o.d(x); }
-  void f2(Object2& o, int x) { o.c(x); }
-};
-```
-
-This can be achieved with the following:
+This can be achieved with the following where both the object and the strategy are stored in the Implementation pimpl, so the strategy can be called with the object as an argument:
 
 ```c++
 class RuntimeTypeErased
@@ -234,23 +218,23 @@ The main drawback with *Type Erasure*'s two interpretations above is that the or
 ```c++
 int main()
 {
-  StrategyA s{ StrategyA() };
-  auto o{ std::make_shared<Object1>(1) };
+  auto sa{ StrategyA() };
+  auto o1{ std::make_shared<Object1>(1) };
 
   std::vector<Compounded> v;
   v.emplace_back(Object2(2), StrategyB());
-  v.emplace_back(Object1(3), s);
-  v.emplace_back(o, StrategyA());
-  v.emplace_back(o, s);
+  v.emplace_back(Object1(3), sa);
+  v.emplace_back(o1, StrategyA());
+  v.emplace_back(o1, sa);
   for (auto&& e : v) {
     e.f1(11);
     e.f2(12);
   }
-  o->a(13);
+  o1->a(13);
 }
 ```
 
-Templated class `Compounded` below gets a constructor that detects if the passed object is a `std::shared_ptr` and stores it in the pimpl accordingly.
+The following gets a constructor that detects if the passed object is a `std::shared_ptr` and stores it in the pimpl accordingly.
 
 ```c++
 class Compounded
@@ -323,29 +307,29 @@ The main advantage would be that no `clone()` method is needed as compounded obj
 
 ## Compound Stateful Strategies to Existing Objects
 
-What if one wants to compound to a stateful Strategy and keep full access to it as follows:
+What if one also wants to compound to a stateful Strategy and keep full access to it as follows:
 
 ```c++
 int main()
 {
-  auto s{ std::make_shared<StrategyB>(21) };
-  auto o{ std::make_shared<Object1>(1) };
+  auto sb{ std::make_shared<StrategyB>() };
+  auto o1{ std::make_shared<Object1>(1) };
 
   std::vector<StatefulCompounded> v;
-  v.emplace_back(o, s);
-  v.emplace_back(o, StrategyA(22));
-  v.emplace_back(Object2(2), s);
-  v.emplace_back(Object1(3), StrategyB(23));
-  o->a(11);
+  v.emplace_back(o1, sb);
+  v.emplace_back(o1, StrategyA());
+  v.emplace_back(Object2(2), sb);
+  v.emplace_back(Object1(3), StrategyB());
+  o1->a(13);
   for (auto&& e : v) {
-    e.f1(12);
-    e.f2(13);
+    e.f1(11);
+    e.f2(12);
   }
-  s->g();
+  sb->g();
 }
 ```
 
-Templated class `StatefulCompounded`'s constructor detects also if the passed Strategy is a `std::shared_ptr` and stores it accordingly.
+Templated class `StatefulCompounded`'s constructor also detects if the passed Strategy is a `std::shared_ptr` and stores it accordingly.
 
 ```c++
 class StatefulCompounded
