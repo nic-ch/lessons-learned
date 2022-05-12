@@ -312,20 +312,22 @@ What if one also wants to compound to a stateful Strategy and keep full access t
 ```c++
 int main()
 {
-  auto sb{ std::make_shared<StrategyB>() };
-  auto o1{ std::make_shared<Object1>(1) };
+    auto sa{ StrategyA() };
+    auto sb{ std::make_shared<StrategyB>() };
+    auto o1{ std::make_shared<Object1>(1) };
+    auto o2{ Object2(2) };
 
-  std::vector<StatefulCompounded> v;
-  v.emplace_back(o1, sb);
-  v.emplace_back(o1, StrategyA());
-  v.emplace_back(Object2(2), sb);
-  v.emplace_back(Object1(3), StrategyB());
-  o1->a(13);
-  for (auto&& e : v) {
-    e.f1(11);
-    e.f2(12);
-  }
-  sb->g();
+    std::vector<StatefulCompounded> v;
+    v.emplace_back(o1, sb);
+    v.emplace_back(o1, sa);
+    v.emplace_back(o2, sa);
+    v.emplace_back(Object1(3), StrategyB());
+    o1->a(13);
+    for (auto&& e : v) {
+      e.f1(11);
+      e.f2(12);
+    }
+    sb->g();
 }
 ```
 
